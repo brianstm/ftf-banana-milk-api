@@ -45,7 +45,7 @@ flask_cors.CORS(app, resources={r"/*": {"origins": "*"}})
 lobbies = {}
 
 es = Elasticsearch(
-    "https://my-elasticsearch-project-f37513.es.ap-southeast-1.aws.elastic.cloud:443",
+    "https://my-elasticsearch-project-d6a6a8.es.us-west-2.aws.elastic.cloud:443",
     api_key=os.getenv("ES_API_KEY")
 )
 
@@ -157,6 +157,10 @@ def get_recommendations(lobby_id):
     return jsonify(recommendations)
 
 
+@app.route("/")
+def home():
+    return "Welcome to the lobby API!"
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port="8080", debug=True)
 
