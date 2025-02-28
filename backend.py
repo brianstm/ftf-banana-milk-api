@@ -5,6 +5,7 @@ from anthropic import AnthropicBedrock
 from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 import random
+from assistant.py import request_recommendation
 
 load_dotenv()
 
