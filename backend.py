@@ -8,6 +8,7 @@ import random
 
 load_dotenv()
 
+
 client = AnthropicBedrock(
     aws_access_key=os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
@@ -159,3 +160,5 @@ def get_recommendations(lobby_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+    flask_cors.CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+
