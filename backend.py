@@ -2,7 +2,7 @@ import flask_cors
 import os
 from elasticsearch import Elasticsearch
 from anthropic import AnthropicBedrock
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 import random
 
@@ -40,7 +40,7 @@ tools = [
 ]
 
 app = Flask(__name__)
-flask_cors.CORS(app)
+flask_cors.CORS(app, resources={r"/*": {"origins": "*"}})
 app.secret_key = "secret_key"
 
 lobbies = {}
@@ -100,7 +100,7 @@ def request_recommendation(user_preferences):
 @app.route('/api/create-lobby', methods=['POST'])
 def create_lobby():
     data = request.get_json()
-    lobby_id = ''.join([str(random.randint(0, 9)) for i in range(6)])
+    lobby_id = ''.join([str(random.randint(0, 9)) for _ in range(6)])
     lobbies[lobby_id] = {"name": data.get(
         "name"), "members": [], "interests": {}}
     return jsonify({"lobbyId": lobby_id}), 201
@@ -160,5 +160,4 @@ def get_recommendations(lobby_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-    flask_cors.CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
