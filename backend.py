@@ -162,7 +162,7 @@ def request_recommendation(param):
 	print(f"Searching {field}, {query}...")
 
 	places_data = get_elastic_search(field, query)
-	result = "\n".join([f"##{place['name']}\n{place['description']}" for place in places_data])
+	result = "\n".join([f"## {place['name']}\n{place['description']}" for place in places_data])
 
 	print(result)
 
