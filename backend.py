@@ -100,7 +100,7 @@ def request_recommendation(user_preferences):
 def create_lobby():
     data = request.get_json()
     lobby_id = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-    lobbies[lobby_id] = {"name": data.get(
+    lobbies[lobby_id] = {"lobby_id": lobby_id, "name": data.get(
         "name"), "members": [], "interests": {}}
     return jsonify({"lobbyId": lobby_id}), 201
 
@@ -128,7 +128,7 @@ def join_lobby():
     return jsonify({'message': 'User joined lobby'}), 200
 
 
-@app.route('/lobby/<int:lobby_id>/hub')
+@app.route('/lobby/<lobby_id>/hub')
 def hub(lobby_id):
     lobby = lobbies.get(lobby_id)
     if not lobby:
@@ -145,7 +145,7 @@ def hub(lobby_id):
     return jsonify({'message': f'Lobby hub for lobby {lobby_id}', 'members': display_members, "interests": lobby["interests"]}), 200
 
 
-@app.route('/lobby/<int:lobby_id>/recommendations')
+@app.route('/lobby/<lobby_id>/recommendations')
 def get_recommendations(lobby_id):
     lobby = lobbies.get(lobby_id)
     if not lobby:
@@ -159,7 +159,8 @@ def get_recommendations(lobby_id):
 
 @app.route("/")
 def home():
-    return "Welcome to the lobby API!"
+    return jsonify({"message": "Welcome to the Lobby API", "lobbies": lobbies})
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port="8080", debug=True)
