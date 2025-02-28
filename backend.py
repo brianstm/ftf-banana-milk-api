@@ -1,11 +1,10 @@
 import flask_cors
 import os
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, helpers
 from anthropic import AnthropicBedrock
 from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 import random
-from assistant.py import request_recommendation
 
 load_dotenv()
 
@@ -40,6 +39,136 @@ tools = [
     }
 ]
 
+
+
+system_prompt = [
+    {
+        "role" : "user",
+        "content" : "You are a recommendation system."
+    }
+]
+
+tools = [
+    {
+        "name": "event_search",
+        "description": "Get an event or destination based on user interest",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "enum": ["name", "description"],
+                    "description": "The field to search for events or destinations",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "The query to search for events or destinations",
+                }
+            },
+            "required": ["field", "query"],
+        },
+    }
+]
+
+es = Elasticsearch(
+	"https://my-elasticsearch-project-d6a6a8.es.us-west-2.aws.elastic.cloud:443",
+	api_key=os.getenv("ES_API_KEY"),
+)
+
+client = AnthropicBedrock(
+    aws_access_key=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    aws_region=os.getenv("AWS_REGION"),
+)
+
+def setup_elastic_search():
+	index_name = "destinations"
+
+	mappings = {
+		"properties" : {
+			"name" : {
+				"type": "semantic_text"
+			},
+			"description" : {
+				"type": "semantic_text"
+			}
+		}
+	}
+
+	mapping_response = es.indices.put_mapping(index=index_name, body=mappings)
+	print(mapping_response)
+
+	docs = []
+
+	with open("destinations.ndjson", "r") as f:
+		for line in f:
+			if line.strip():
+				data = json.loads(line)
+				desc = ""
+				if data["country"] != "Singapore":
+					continue
+				for key, value in data.items():
+					if key != "name" and value:
+						desc += f"- {key}: {value}\n"
+				docs.append({
+					"name": data["name"],
+					"description": desc
+				})
+
+	bulk_response = helpers.bulk(es, docs, index=index_name)
+	print(bulk_response)
+
+def get_elastic_search(field, query):
+	query = {
+		"semantic": {
+			"field": field,
+			"query": query
+		}
+	}
+
+	response = es.search(index="destinations", query=query)
+
+	places_data = [hit["_source"] for hit in response["hits"]["hits"]]
+	return places_data
+
+def request_recommendation(param):
+	system_prompt = "You are an assistant that helps users find destinations based on their preferences. Be as specific as you can with the tool params. After receiving the tool response, format the response accordingly and provide the best response."
+
+	context = [
+		{
+			"role": "user",
+			"content": f"Here are the names of the users and their respective likes and dislikes.\n{param}\nDetermine the shared likes and dislikes of the users and query the tool to determine the most likely enjoyable event."
+		}
+	]
+
+	print("Understanding...")
+
+	response = client.messages.create(
+		model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+		max_tokens=1024,
+		messages=context,
+		tools=tools,
+		tool_choice={
+			"type": "tool",
+			"name": "event_search"
+		}
+	)
+
+	content = response.content[0]
+	tool_input = response.content[0].input
+	field = tool_input["field"]
+	query = tool_input["query"]
+
+	print(f"Searching {field}, {query}...")
+
+	places_data = get_elastic_search(field, query)
+	result = "\n".join([f"##{place['name']}\n{place['description']}" for place in places_data])
+
+	print(result)
+
+	return result
+
+
 app = Flask(__name__)
 flask_cors.CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -49,53 +178,6 @@ es = Elasticsearch(
     "https://my-elasticsearch-project-d6a6a8.es.us-west-2.aws.elastic.cloud:443",
     api_key=os.getenv("ES_API_KEY")
 )
-
-
-def get_elastic_search(query_term):
-    query = {
-        "size": 50,
-        "query": {
-            "match": {
-                "description": query_term
-            }
-        }
-    }
-
-    response = es.search(index="destinations_all", body=query)
-
-    places_data = [hit["_source"] for hit in response["hits"]["hits"]]
-    return places_data
-
-
-def request_recommendation(user_preferences):
-    context_copy = context[:]
-    context_copy.append(
-        {
-            "role": "user",
-            "content": f"Based on these preferences: {user_preferences}, provide a common interest."
-        }
-    )
-
-    response = client.messages.create(
-        max_tokens=1024,
-        messages=context_copy,
-        tools=tools,
-        model="anthropic.claude-3-5-sonnet-20241022-v2:0",
-        tool_choice={
-            "type": "tool",
-            "name": "event_search",
-        }
-    )
-
-    for content in response.content:
-        if content["type"] == "tool_use":
-            arguments = content['input']['arguments']
-            search_term = arguments['lobby_type']
-            elastic_results = get_elastic_search(search_term)
-            return elastic_results
-
-    return "No recommendation found."
-
 
 @app.route('/api/create-lobby', methods=['POST'])
 def create_lobby():
@@ -153,9 +235,13 @@ def get_recommendations(lobby_id):
         return jsonify({'error': 'Lobby not found'}), 404
     all_preferences = ""
     for member in lobby["members"]:
-        all_preferences += f"User {member['name']}: Likes: {member['interests']['likes']}, Dislikes: {member['interests']['dislikes']}. "
+        all_preferences += f"User {member['name']}: Likes: {', '.join(member['interests']['likes']) if member['interests']['likes'] else 'None'}, Dislikes: {', '.join(member['interests']['dislikes']) if member['interests']['dislikes'] else 'None'}. "
+
+    print(all_preferences)
     recommendations = request_recommendation(all_preferences)
-    return jsonify(recommendations)
+
+    print(recommendations)
+    return recommendations
 
 
 @app.route("/")
@@ -165,4 +251,3 @@ def home():
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port="8080", debug=True)
-

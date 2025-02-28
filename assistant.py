@@ -70,9 +70,11 @@ def setup_elastic_search():
 			if line.strip():
 				data = json.loads(line)
 				desc = ""
+				if data["country"] != "Singapore":
+					continue
 				for key, value in data.items():
 					if key != "name" and value:
-						desc += f"{key}: {value}\n"
+						desc += f"- {key}: {value}\n"
 				docs.append({
 					"name": data["name"],
 					"description": desc
@@ -80,6 +82,8 @@ def setup_elastic_search():
 
 	bulk_response = helpers.bulk(es, docs, index=index_name)
 	print(bulk_response)
+
+# setup_elastic_search()
 
 def get_elastic_search(field, query):
 	query = {
@@ -135,7 +139,7 @@ def request_recommendation(param): # Returns text response
 	return result
 
 
-# request_recommendation("User rayhan, likes: urban exploration; surabaya, dislikes: sports")
+request_recommendation("User rayhan, likes: urban exploration, dislikes: sports")
 
 
 # print("\n".join([f'{bruh["name"]} - {bruh["description"]}' for bruh in get_elastic_search()]))
