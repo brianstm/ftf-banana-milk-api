@@ -41,7 +41,6 @@ tools = [
 
 app = Flask(__name__)
 flask_cors.CORS(app, resources={r"/*": {"origins": "*"}})
-app.secret_key = "secret_key"
 
 lobbies = {}
 
