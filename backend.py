@@ -49,12 +49,13 @@ es = Elasticsearch(
     api_key=os.getenv("ES_API_KEY")
 )
 
+
 def get_elastic_search(query_term):
     query = {
         "size": 50,
         "query": {
-            "match":{
-                "description":query_term
+            "match": {
+                "description": query_term
             }
         }
     }
@@ -63,6 +64,7 @@ def get_elastic_search(query_term):
 
     places_data = [hit["_source"] for hit in response["hits"]["hits"]]
     return places_data
+
 
 def request_recommendation(user_preferences):
     context_copy = context[:]
@@ -93,11 +95,15 @@ def request_recommendation(user_preferences):
 
     return "No recommendation found."
 
+
 @app.route('/api/create-lobby', methods=['POST'])
 def create_lobby():
-    lobby_id = random.randint(1000, 9999)
-    lobbies[lobby_id] = {"members": [], "interests": {}}
+    data = request.get_json()
+    lobby_id = int(''.join([str(random.randint(0, 9)) for i in range(6)]))
+    lobbies[lobby_id] = {"name": data.get(
+        "name"), "members": [], "interests": {}}
     return jsonify({"lobbyId": lobby_id}), 201
+
 
 @app.route('/api/join-lobby', methods=['POST'])
 def join_lobby():
@@ -121,6 +127,7 @@ def join_lobby():
 
     return jsonify({'message': 'User joined lobby'}), 200
 
+
 @app.route('/lobby/<int:lobby_id>/hub')
 def hub(lobby_id):
     lobby = lobbies.get(lobby_id)
@@ -137,6 +144,7 @@ def hub(lobby_id):
 
     return jsonify({'message': f'Lobby hub for lobby {lobby_id}', 'members': display_members, "interests": lobby["interests"]}), 200
 
+
 @app.route('/lobby/<int:lobby_id>/recommendations')
 def get_recommendations(lobby_id):
     lobby = lobbies.get(lobby_id)
@@ -147,6 +155,7 @@ def get_recommendations(lobby_id):
         all_preferences += f"User {member['name']}: Likes: {member['interests']['likes']}, Dislikes: {member['interests']['dislikes']}. "
     recommendations = request_recommendation(all_preferences)
     return jsonify(recommendations)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
