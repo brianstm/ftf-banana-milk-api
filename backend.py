@@ -99,7 +99,7 @@ def request_recommendation(user_preferences):
 @app.route('/api/create-lobby', methods=['POST'])
 def create_lobby():
     data = request.get_json()
-    lobby_id = int(''.join([str(random.randint(0, 9)) for i in range(6)]))
+    lobby_id = ''.join([str(random.randint(0, 9)) for i in range(6)])
     lobbies[lobby_id] = {"name": data.get(
         "name"), "members": [], "interests": {}}
     return jsonify({"lobbyId": lobby_id}), 201
